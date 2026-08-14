@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CardView } from "../components/CardView";
 import type { Card } from "../../shared/types";
 
@@ -10,7 +10,7 @@ const skip: Card = { id: "d4", type: "skip", color: "yellow" };
 const STEPS: { title: string; body: string; fx: string; hand: Card[]; top: Card }[] = [
   {
     title: "同じ色か同じ数字",
-    body: "場のカードと、色か数字が同じカードを出します。",
+    body: "場のカードと、色か数字が同じカードを出します。カードをタップして選んでから「出す」を押します。",
     fx: "7",
     hand: [red7, blue7, skip],
     top: { id: "t", type: "number", color: "red", value: 3 },
@@ -55,13 +55,7 @@ const STEPS: { title: string; body: string; fx: string; hand: Card[]; top: Card 
 export function Demo({ onDone }: { onDone: () => void }) {
   const [i, setI] = useState(0);
   const step = STEPS[i]!;
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (i < STEPS.length - 1) setI(i + 1);
-    }, 2800);
-    return () => window.clearTimeout(t);
-  }, [i]);
+  const last = i >= STEPS.length - 1;
 
   return (
     <main className="screen demo">
@@ -95,15 +89,21 @@ export function Demo({ onDone }: { onDone: () => void }) {
       <div className="row">
         <button
           type="button"
-          className="btn secondary xl"
-          onClick={() => setI(Math.min(STEPS.length - 1, i + 1))}
-          disabled={i >= STEPS.length - 1}
+          className="btn ghost xl"
+          onClick={() => setI((n) => Math.max(0, n - 1))}
+          disabled={i === 0}
         >
-          次へ
+          戻る
         </button>
-        <button type="button" className="btn primary xl" onClick={onDone}>
-          {i >= STEPS.length - 1 ? "遊んでみる" : "スキップして遊ぶ"}
-        </button>
+        {last ? (
+          <button type="button" className="btn primary xl" onClick={onDone}>
+            遊んでみる
+          </button>
+        ) : (
+          <button type="button" className="btn primary xl" onClick={() => setI((n) => n + 1)}>
+            次へ
+          </button>
+        )}
       </div>
     </main>
   );

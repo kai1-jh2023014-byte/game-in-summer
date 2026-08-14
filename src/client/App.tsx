@@ -29,7 +29,7 @@ export function App() {
   const [secret, setSecret] = useState<SecretPayload | null>(null);
   const [demo, setDemo] = useState(false);
   const [intro, setIntro] = useState(() => !shouldSkipDemo());
-  const [fx, setFx] = useState<string | null>(null);
+  const [fx, setFx] = useState<{ title: string; hint: string } | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [handPop, setHandPop] = useState<string | null>(null);
   const lastCode = useRef<string | null>(null);
@@ -131,7 +131,7 @@ export function App() {
         if (toast) showToast(toast);
         if (burst) {
           setFx(burst);
-          window.setTimeout(() => setFx((now) => (now === burst ? null : now)), 1300);
+          window.setTimeout(() => setFx((now) => (now === burst ? null : now)), 2200);
         }
         const lines = notices.map((n) => n.log).filter(Boolean);
         if (lines.length) setLog((old) => [...lines, ...old].slice(0, 4));
@@ -291,7 +291,7 @@ export function App() {
           </div>
         </div>
       )}
-      <PlayFX title={fx} />
+      <PlayFX banner={fx} />
       <HandPop text={handPop} />
       {screen === "game" && <EventLog lines={log} />}
       <Toast message={toast} />

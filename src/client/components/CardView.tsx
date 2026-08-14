@@ -1,5 +1,6 @@
 import type { Card, Color, PublicPlayer } from "../../shared/types";
 import { cardLabel, isWild } from "../../shared/deck";
+import { cardHelp } from "../../shared/cardHelp";
 import { CARD_INFO, isPartyCard, type PartyCardType } from "../../shared/party";
 
 const ICONS: Record<string, string> = {
@@ -17,7 +18,6 @@ export function CardView({
   dimmed,
   large,
   onClick,
-  onHelp,
 }: {
   card: Card;
   selected?: boolean;
@@ -25,7 +25,6 @@ export function CardView({
   dimmed?: boolean;
   large?: boolean;
   onClick?: () => void;
-  onHelp?: () => void;
 }) {
   const party = isPartyCard(card);
   const info = party ? CARD_INFO[card.type as PartyCardType] : null;
@@ -33,11 +32,10 @@ export function CardView({
   const label = party ? info!.emoji : card.type === "number" ? cardLabel(card) : (ICONS[card.type] ?? cardLabel(card));
   const sub = party
     ? info!.title
-    : card.type === "draw2" || card.type === "wild" || card.type === "wildDraw4"
+    : card.type === "draw2" || card.type === "wild" || card.type === "wildDraw4" || card.type === "skip" || card.type === "reverse"
       ? cardLabel(card)
       : null;
 
-  let hold: number | undefined;
   return (
     <button
       type="button"
@@ -50,21 +48,6 @@ export function CardView({
         large ? "large" : "",
       ].join(" ")}
       onClick={onClick}
-      disabled={!onClick && !onHelp}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onHelp?.();
-      }}
-      onPointerDown={() => {
-        if (!onHelp) return;
-        hold = window.setTimeout(() => onHelp(), 450);
-      }}
-      onPointerUp={() => {
-        if (hold) window.clearTimeout(hold);
-      }}
-      onPointerLeave={() => {
-        if (hold) window.clearTimeout(hold);
-      }}
     >
       <span className="card-label">{label}</span>
       {sub ? <span className="card-sub">{sub}</span> : null}
@@ -122,21 +105,12 @@ export function PlayerPicker({
 }
 
 export function HelpCard({ card, onClose }: { card: Card; onClose: () => void }) {
-  const party = isPartyCard(card) ? CARD_INFO[card.type as PartyCardType] : null;
+  const help = cardHelp(card);
   return (
     <div className="overlay" role="dialog" onClick={onClose}>
       <div className="overlay-card" onClick={(e) => e.stopPropagation()}>
-        {party ? (
-          <>
-            <h2>{party.emoji} {party.title}</h2>
-            <p className="hint">{party.hint}</p>
-          </>
-        ) : (
-          <>
-            <h2>{cardLabel(card)}</h2>
-            <p className="hint">場の色か数字・種類が同じなら出せます。</p>
-          </>
-        )}
+        <h2>{help.emoji} {help.title}</h2>
+        <p className="hint">{help.hint}</p>
         <button type="button" className="btn primary" onClick={onClose}>OK</button>
       </div>
     </div>

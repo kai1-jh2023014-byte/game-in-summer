@@ -1,9 +1,10 @@
-export function PlayFX({ title }: { title: string | null }) {
-  if (!title) return null;
+export function PlayFX({ banner }: { banner: { title: string; hint: string } | null }) {
+  if (!banner) return null;
   return (
     <div className="fx-layer" aria-live="assertive">
-      <div key={title} className="fx-burst">
-        {title}
+      <div key={banner.title + banner.hint} className="fx-burst">
+        <div>{banner.title}</div>
+        {banner.hint && <p className="fx-hint">{banner.hint}</p>}
       </div>
     </div>
   );

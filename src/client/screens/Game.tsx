@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card, ClientState, Color, PlayExtras } from "../../shared/types";
 import { canPlay, isWild } from "../../shared/deck";
+import { cardHelp } from "../../shared/cardHelp";
 import { CARD_INFO, needsTarget, RULE_INFO, type PartyCardType } from "../../shared/party";
 import { CardView, ColorPicker, HelpCard, PlayerPicker } from "../components/CardView";
 
@@ -102,32 +103,22 @@ export function Game({
   }
 
   function onCardTap(card: Card) {
-    if (!isMe) {
-      setHelp(card);
-      return;
-    }
     if (state.drawnCard) {
-      if (card.id === state.drawnCard.id) tryPlay(card);
+      if (card.id === state.drawnCard.id) setSelected([card.id]);
       return;
     }
     if (card.type === "number") {
       const first = selectedCards[0];
-      if (!first) {
-        setSelected([card.id]);
-        return;
-      }
-      if (first.type === "number" && first.value === card.value) {
+      if (first?.type === "number" && first.value === card.value && first.id !== card.id) {
         setSelected((cur) => (cur.includes(card.id) ? cur.filter((id) => id !== card.id) : [...cur, card.id]));
         return;
       }
     }
-    if (selected.length === 1 && selected[0] === card.id) tryPlay(card);
-    else setSelected([card.id]);
+    setSelected((cur) => (cur.length === 1 && cur[0] === card.id ? [] : [card.id]));
   }
 
   const displayHand = state.drawnCard ? [state.drawnCard, ...hand] : hand;
   const party = state.mode === "party";
-  const canMulti = selectedCards.length >= 2 && selectedCards.every((c) => c.type === "number");
   const lead = selectedCards[0];
 
   return (
@@ -179,7 +170,7 @@ export function Game({
 
       <section className="table">
         <div className={`color-ring ${color ?? ""}`}>
-          {top && <CardView card={top} large onHelp={() => setHelp(top)} />}
+          {top && <CardView card={top} large onClick={() => setHelp(top)} />}
         </div>
         <div className="deck-stack" aria-hidden>
           <div className="card back large">🂠</div>
@@ -208,7 +199,7 @@ export function Game({
       )}
 
       <section className="hand-wrap">
-        <div className="hand-label">YOUR HAND · {state.you.hand.length + (state.drawnCard ? 1 : 0)}枚</div>
+        <div className="hand-label">YOUR HAND · {state.you.hand.length + (state.drawnCard ? 1 : 0)}枚 — カードをタップして選ぶ</div>
         <div className="hand">
           {displayHand.map((card) => {
             const playable = Boolean(isMe && top && color && canPlay(card, top, color, pending));
@@ -219,24 +210,41 @@ export function Game({
                 card={card}
                 selected={selected.includes(card.id)}
                 playable={playable && !locked}
-                dimmed={!isMe || locked || !playable}
+                dimmed={locked || (isMe && !playable)}
                 onClick={() => onCardTap(card)}
-                onHelp={() => setHelp(card)}
               />
             );
           })}
         </div>
       </section>
 
-      {canMulti && lead && (
-        <button
-          type="button"
-          className="btn primary xl"
-          disabled={!isMe || busy}
-          onClick={() => tryPlay(lead)}
-        >
-          {selectedCards.length}枚出す（{lead.value}）
-        </button>
+      {lead && (
+        <div className="play-bar" role="status">
+          <p className="play-bar-title">
+            {cardHelp(lead).emoji} {cardHelp(lead).title}
+            {selectedCards.length > 1 ? ` ×${selectedCards.length}` : ""}
+          </p>
+          <p className="play-bar-hint">{cardHelp(lead).hint}</p>
+          <div className="row">
+            <button
+              type="button"
+              className="btn primary xl"
+              disabled={!isMe || busy || !top || !color || !canPlay(lead, top, color, pending) || Boolean(state.drawnCard && lead.id !== state.drawnCard.id)}
+              onClick={() => tryPlay(lead)}
+            >
+              {!isMe
+                ? "相手の番です"
+                : !top || !color || !canPlay(lead, top, color, pending)
+                  ? "今は出せません"
+                  : selectedCards.length > 1
+                    ? `${selectedCards.length}枚出す`
+                    : "このカードを出す"}
+            </button>
+            <button type="button" className="btn ghost" onClick={() => setSelected([])}>
+              やめる
+            </button>
+          </div>
+        </div>
       )}
 
       <footer className="actions">
@@ -266,8 +274,8 @@ export function Game({
       )}
       {targeting && (
         <PlayerPicker
-          title="誰を選ぶ？"
-          hint={CARD_INFO[targeting.type as PartyCardType]?.hint}
+          title={`${CARD_INFO[targeting.type as PartyCardType]?.emoji ?? ""} ${CARD_INFO[targeting.type as PartyCardType]?.title ?? "誰を選ぶ？"}`}
+          hint={CARD_INFO[targeting.type as PartyCardType]?.hint ?? "対象の人を選んでください。"}
           players={opponents}
           onPick={onTarget}
           onCancel={() => setTargeting(null)}

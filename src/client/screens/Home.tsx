@@ -79,7 +79,7 @@ export function Home({
         <div className="overlay" role="dialog" aria-label="はじめて遊びますか？">
           <div className="overlay-card">
             <h2>はじめて遊びますか？</h2>
-            <p className="hint">1分のデモで、出し方・+2・UNO がわかります。</p>
+            <p className="hint">出し方・+2・UNO を、自分のペースで確認できます。</p>
             <button type="button" className="btn primary xl" onClick={onDemo}>
               👀 デモプレイを見る
             </button>
