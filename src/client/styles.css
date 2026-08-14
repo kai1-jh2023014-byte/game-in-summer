@@ -54,7 +54,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  animation: pop 0.35s ease;
+  animation: pop 0.35s ease forwards;
 }
 
 @keyframes pop {
@@ -95,6 +95,11 @@ select {
 .status-msg {
   color: var(--muted);
   text-align: center;
+}
+
+.status-msg.ok {
+  color: #7dffb3;
+  font-weight: 700;
 }
 
 .panel {

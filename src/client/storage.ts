@@ -2,27 +2,54 @@ const PID = "nanairo.playerId";
 const NAME = "nanairo.name";
 const MUTE = "nanairo.mute";
 
-export function getPlayerId(): string {
-  let id = localStorage.getItem(PID);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(PID, id);
+let memoryId = "";
+
+function read(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
   }
+}
+
+function write(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode / blocked storage */
+  }
+}
+
+function newId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `p-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+export function getPlayerId(): string {
+  const existing = read(PID);
+  if (existing) return existing;
+  if (memoryId) return memoryId;
+  const id = newId();
+  memoryId = id;
+  write(PID, id);
   return id;
 }
 
 export function getSavedName(): string {
-  return localStorage.getItem(NAME) ?? "";
+  return read(NAME) ?? "";
 }
 
 export function saveName(name: string): void {
-  localStorage.setItem(NAME, name.trim().slice(0, 16));
+  write(NAME, name.trim().slice(0, 16));
 }
 
 export function isMuted(): boolean {
-  return localStorage.getItem(MUTE) === "1";
+  return read(MUTE) === "1";
 }
 
 export function setMuted(muted: boolean): void {
-  localStorage.setItem(MUTE, muted ? "1" : "0");
+  write(MUTE, muted ? "1" : "0");
 }

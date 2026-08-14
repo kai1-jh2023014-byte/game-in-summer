@@ -43,7 +43,7 @@ export function Home({
           />
         </label>
         <button type="button" className="btn primary xl" onClick={onCreate} disabled={!!busy || !ready}>
-          🎮 ゲームを作る
+          {!ready ? "🎮 接続中..." : "🎮 ゲームを作る"}
         </button>
         <div className="or">または参加</div>
         <label>
@@ -63,6 +63,8 @@ export function Home({
         </button>
       </form>
       {busy && <p className="status-msg">{busy}</p>}
+      {!ready && !busy && <p className="status-msg">🎮 サーバーに接続しています...</p>}
+      {ready && !busy && <p className="status-msg ok">接続OK</p>}
     </main>
   );
 }

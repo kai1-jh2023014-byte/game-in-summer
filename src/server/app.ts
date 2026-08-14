@@ -35,9 +35,10 @@ export function createApp(): AppHandles {
 
   const dist = path.resolve(process.cwd(), "dist");
   if (fs.existsSync(dist)) {
-    app.use(express.static(dist));
+    app.use(express.static(dist, { index: false }));
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/socket.io")) return next();
+      res.setHeader("Cache-Control", "no-store");
       res.sendFile(path.join(dist, "index.html"));
     });
   }

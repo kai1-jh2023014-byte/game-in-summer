@@ -87,17 +87,23 @@ export function attachSockets(io: Server, manager: RoomManager): void {
     socket.on(
       "room:create",
       ({ name, playerId }: { name: string; playerId: string }, ack?: (a: Ack) => void) => {
-        if (!playerId || !name?.trim()) {
-          ack?.({ ok: false, error: "名前を入力してください" });
-          return;
+        try {
+          if (!playerId || !name?.trim()) {
+            ack?.({ ok: false, error: "名前を入力してください" });
+            return;
+          }
+          const result = manager.create(playerId, name);
+          if (result.ok) {
+            sessions.set(socket.id, { playerId, code: result.state.code });
+            socket.join(result.state.code);
+            manager.bindSocket(result.state.code, playerId, socket.id);
+            console.log(`room:create ${result.state.code} by ${name.trim()}`);
+          }
+          reply(socket, result, ack);
+        } catch (err) {
+          console.error("room:create failed", err);
+          ack?.({ ok: false, error: "ルームを作れませんでした" });
         }
-        const result = manager.create(playerId, name);
-        if (result.ok) {
-          sessions.set(socket.id, { playerId, code: result.state.code });
-          socket.join(result.state.code);
-          manager.bindSocket(result.state.code, playerId, socket.id);
-        }
-        reply(socket, result, ack);
       },
     );
 
@@ -107,17 +113,23 @@ export function attachSockets(io: Server, manager: RoomManager): void {
         { code, name, playerId }: { code: string; name: string; playerId: string },
         ack?: (a: Ack) => void,
       ) => {
-        if (!playerId || !name?.trim() || !code?.trim()) {
-          ack?.({ ok: false, error: "名前とルームコードを入力してください" });
-          return;
+        try {
+          if (!playerId || !name?.trim() || !code?.trim()) {
+            ack?.({ ok: false, error: "名前とルームコードを入力してください" });
+            return;
+          }
+          const result = manager.join(code.trim().toUpperCase(), playerId, name);
+          if (result.ok) {
+            sessions.set(socket.id, { playerId, code: result.state.code });
+            socket.join(result.state.code);
+            manager.bindSocket(result.state.code, playerId, socket.id);
+            console.log(`room:join ${result.state.code} by ${name.trim()}`);
+          }
+          reply(socket, result, ack);
+        } catch (err) {
+          console.error("room:join failed", err);
+          ack?.({ ok: false, error: "ルームに入れませんでした" });
         }
-        const result = manager.join(code.trim().toUpperCase(), playerId, name);
-        if (result.ok) {
-          sessions.set(socket.id, { playerId, code: result.state.code });
-          socket.join(result.state.code);
-          manager.bindSocket(result.state.code, playerId, socket.id);
-        }
-        reply(socket, result, ack);
       },
     );
 

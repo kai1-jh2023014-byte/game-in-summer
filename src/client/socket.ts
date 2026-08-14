@@ -14,7 +14,10 @@ export function createSocket(): Socket {
     reconnectionAttempts: Infinity,
     reconnectionDelay: 400,
     reconnectionDelayMax: 4000,
-    timeout: 8000,
-    transports: ["websocket", "polling"],
+    timeout: 10000,
+    // スマホ・LAN は WebSocket が先に失敗しやすいので HTTP polling から始める
+    transports: ["polling", "websocket"],
+    upgrade: true,
+    rememberUpgrade: false,
   });
 }

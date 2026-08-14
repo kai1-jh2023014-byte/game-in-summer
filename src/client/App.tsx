@@ -83,19 +83,22 @@ export function App() {
     window.setTimeout(() => setToast((cur) => (cur === msg ? null : cur)), 2200);
   }, []);
 
-  const emit = useCallback((event: string, payload?: unknown): Promise<void> => {
+  const emit = useCallback((event: string, payload?: unknown): Promise<{ ok: boolean }> => {
     const socket = socketRef.current;
-    if (!socket) {
-      showToast("😢 まだ接続できていません");
-      return Promise.resolve();
+    if (!socket?.connected) {
+      showToast("😢 サーバーに接続できていません。同じWi-Fiか、URLのポートを確認してください");
+      return Promise.resolve({ ok: false });
     }
     return new Promise((resolve) => {
       const args = payload === undefined ? [] : [payload];
-      const timer = window.setTimeout(() => resolve(), 8000);
+      const timer = window.setTimeout(() => {
+        showToast("応答がありません。ページを再読み込みしてください");
+        resolve({ ok: false });
+      }, 8000);
       socket.emit(event, ...args, (ack?: { ok: boolean; error?: string }) => {
         window.clearTimeout(timer);
         if (ack && ack.ok === false) showToast(ack.error ?? "うまくいきませんでした");
-        resolve();
+        resolve({ ok: ack?.ok !== false });
       });
     });
   }, [showToast]);
@@ -174,7 +177,9 @@ export function App() {
     unlockAudio();
     setBusy("🚀 ルームを作成中...");
     lastCode.current = null;
-    await emit("room:create", { name: name.trim(), playerId: getPlayerId() });
+    const result = await emit("room:create", { name: name.trim(), playerId: getPlayerId() });
+    if (!result.ok) setBusy(null);
+    else window.setTimeout(() => setBusy(null), 2000);
   }
 
   async function onJoin() {
@@ -183,7 +188,13 @@ export function App() {
     unlockAudio();
     setBusy("🚀 ルームに参加中...");
     lastCode.current = code.trim().toUpperCase();
-    await emit("room:join", { code: code.trim().toUpperCase(), name: name.trim(), playerId: getPlayerId() });
+    const result = await emit("room:join", {
+      code: code.trim().toUpperCase(),
+      name: name.trim(),
+      playerId: getPlayerId(),
+    });
+    if (!result.ok) setBusy(null);
+    else window.setTimeout(() => setBusy(null), 2000);
   }
 
   async function onLeave() {
