@@ -90,15 +90,28 @@ export function App() {
       return Promise.resolve({ ok: false });
     }
     return new Promise((resolve) => {
-      const args = payload === undefined ? [] : [payload];
+      let done = false;
+      const finish = (ok: boolean) => {
+        if (done) return;
+        done = true;
+        window.clearTimeout(timer);
+        socket.off("room:state", onState);
+        resolve({ ok });
+      };
+      const onState = () => finish(true);
       const timer = window.setTimeout(() => {
         showToast("応答がありません。ページを再読み込みしてください");
-        resolve({ ok: false });
-      }, 8000);
+        finish(false);
+      }, 6000);
+      socket.once("room:state", onState);
+      const args = payload === undefined ? [] : [payload];
       socket.emit(event, ...args, (ack?: { ok: boolean; error?: string }) => {
-        window.clearTimeout(timer);
-        if (ack && ack.ok === false) showToast(ack.error ?? "うまくいきませんでした");
-        resolve({ ok: ack?.ok !== false });
+        if (ack && ack.ok === false) {
+          showToast(ack.error ?? "うまくいきませんでした");
+          finish(false);
+          return;
+        }
+        if (event === "room:leave") finish(true);
       });
     });
   }, [showToast]);

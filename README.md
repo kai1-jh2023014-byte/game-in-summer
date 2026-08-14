@@ -12,9 +12,10 @@
 
 ```bash
 npm install
-npm run build
 npm start
 ```
+
+`npm start` は画面のビルドも一緒に行います。GitHub から別PCへ持ってきたあとは、**必ずそのPCで** 上を実行してください（`dist` は GitHub に含まれません）。
 
 起動すると、ターミナルに次のような URL が出ます。
 

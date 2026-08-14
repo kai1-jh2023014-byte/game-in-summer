@@ -24,6 +24,10 @@ export function createApp(): AppHandles {
     cors: { origin: true, methods: ["GET", "POST"] },
     pingInterval: 10000,
     pingTimeout: 20000,
+    connectTimeout: 20000,
+    perMessageDeflate: false,
+    allowUpgrades: false,
+    transports: ["polling", "websocket"],
     wsEngine: WsServer,
   });
   const manager = new RoomManager();
@@ -35,12 +39,14 @@ export function createApp(): AppHandles {
 
   const dist = path.resolve(process.cwd(), "dist");
   if (fs.existsSync(dist)) {
-    app.use(express.static(dist, { index: false }));
+    app.use(express.static(dist, { index: false, maxAge: 0 }));
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/socket.io")) return next();
-      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.sendFile(path.join(dist, "index.html"));
     });
+  } else {
+    console.warn("⚠ dist がありません。スマホ用画面を出すには npm run build が必要です。");
   }
 
   return { app, httpServer, io, manager };

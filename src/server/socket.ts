@@ -67,14 +67,19 @@ export function attachSockets(io: Server, manager: RoomManager): void {
 
   function reply(socket: Socket, result: RoomResult, ack?: (a: Ack) => void): void {
     if (!result.ok) {
-      ack?.({ ok: false, error: result.error });
       socket.emit("room:error", result.error);
+      ack?.({ ok: false, error: result.error });
       return;
     }
     const session = sessions.get(socket.id);
     if (session) {
       socket.join(result.state.code);
       manager.bindSocket(result.state.code, session.playerId, socket.id);
+    }
+    const playerId = session?.playerId;
+    if (playerId) {
+      // ack より先に本人へ状態を返す（スマホの ack 待ちで止まらないようにする）
+      socket.emit("room:state", manager.viewFor(result.state, playerId));
     }
     ack?.({ ok: true });
     sendSecrets(result);

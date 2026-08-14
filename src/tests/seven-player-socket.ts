@@ -26,7 +26,8 @@ function wait<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
 
 function connect(url: string): Promise<Socket> {
   const socket = ioc(url, {
-    transports: ["polling", "websocket"],
+    transports: ["polling"],
+    upgrade: false,
     forceNew: true,
     reconnection: false,
     timeout: 4000,

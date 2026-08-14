@@ -1,9 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 export function socketUrl(): string {
-  if (import.meta.env.DEV) {
-    return `${window.location.protocol}//${window.location.hostname}:3001`;
-  }
+  // スマホはページと同じオリジンだけを使う（別ポートの WebSocket は LAN で途切れやすい）
   return window.location.origin;
 }
 
@@ -15,9 +13,9 @@ export function createSocket(): Socket {
     reconnectionDelay: 400,
     reconnectionDelayMax: 4000,
     timeout: 10000,
-    // スマホ・LAN は WebSocket が先に失敗しやすいので HTTP polling から始める
-    transports: ["polling", "websocket"],
-    upgrade: true,
+    transports: ["polling"],
+    upgrade: false,
     rememberUpgrade: false,
+    forceNew: true,
   });
 }
