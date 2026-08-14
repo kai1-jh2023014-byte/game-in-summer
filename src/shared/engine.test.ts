@@ -151,8 +151,9 @@ describe("play and turn", () => {
     ]);
     give(state, "p1", [{ id: "h", type: "number", color: "green", value: 4 }]);
     playCard(state, "p0", "p");
-    expect(getPlayer(state, "p1")!.hand).toHaveLength(3);
-    expect(state.currentPlayerId).toBe("p2");
+    expect(state.pendingDraw).toBe(2);
+    expect(getPlayer(state, "p1")!.hand).toHaveLength(1);
+    expect(state.currentPlayerId).toBe("p1");
   });
 
   it("wild requires a color and sets it", () => {
@@ -191,9 +192,10 @@ describe("play and turn", () => {
     ]);
     give(state, "p1", [{ id: "h", type: "number", color: "green", value: 4 }]);
     playCard(state, "p0", "w", "yellow");
-    expect(getPlayer(state, "p1")!.hand).toHaveLength(5);
+    expect(state.pendingDraw).toBe(4);
+    expect(getPlayer(state, "p1")!.hand).toHaveLength(1);
     expect(state.currentColor).toBe("yellow");
-    expect(state.currentPlayerId).toBe("p0");
+    expect(state.currentPlayerId).toBe("p1");
   });
 });
 
@@ -262,8 +264,9 @@ describe("uno and win", () => {
     expect(callUno(state, "p0").ok).toBe(true);
     expect(getPlayer(state, "p0")!.calledUno).toBe(true);
     getPlayer(state, "p0")!.calledUno = false;
+    getPlayer(state, "p0")!.unoCatchUntil = Date.now() + 3000;
     expect(catchUno(state, "p1", "p0").ok).toBe(true);
-    expect(getPlayer(state, "p0")!.hand.length).toBe(3);
+    expect(getPlayer(state, "p0")!.hand.length).toBe(2);
   });
 
   it("team win when a member empties their hand", () => {

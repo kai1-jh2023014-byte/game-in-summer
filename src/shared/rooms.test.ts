@@ -119,7 +119,10 @@ describe("7-player simulation", () => {
         continue;
       }
       const playable = view.you.hand.filter(
-        (c) => view.topCard && view.currentColor && canPlay(c, view.topCard, view.currentColor),
+        (c) =>
+          view.topCard &&
+          view.currentColor &&
+          canPlay(c, view.topCard, view.currentColor, view.pendingDraw),
       );
       if (playable[0]) {
         const card = playable[0];

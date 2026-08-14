@@ -8,7 +8,7 @@ export function sanitizeFor(state: GameState, playerId: string): ClientState {
   const top = topCard(state) ?? null;
   const drawn = you && state.currentPlayerId === you.id ? state.drawnCard : null;
   const canPlayDrawn = Boolean(
-    drawn && top && state.currentColor && canPlay(drawn, top, state.currentColor),
+    drawn && top && state.currentColor && canPlay(drawn, top, state.currentColor, state.pendingDraw ?? 0),
   );
 
   return {
@@ -29,6 +29,7 @@ export function sanitizeFor(state: GameState, playerId: string): ClientState {
       name: p.name,
       cardCount: p.hand.length + (state.drawnCard && state.currentPlayerId === p.id ? 1 : 0),
       calledUno: p.calledUno,
+      unoCatchUntil: p.unoCatchUntil && p.unoCatchUntil > Date.now() ? p.unoCatchUntil : null,
       connected: p.connected,
       teamId: p.teamId,
       isHost: p.isHost,
@@ -54,6 +55,7 @@ export function sanitizeFor(state: GameState, playerId: string): ClientState {
     mode: state.mode ?? "classic",
     specialRules: state.specialRules ?? [],
     luckyNumber: state.luckyNumber ?? null,
+    pendingDraw: state.pendingDraw ?? 0,
   };
 }
 

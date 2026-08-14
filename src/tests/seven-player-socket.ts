@@ -121,7 +121,7 @@ async function main(): Promise<void> {
     const currentIndex = Number(currentId.replace("p", "")) - 1;
     const view = states[currentIndex]!;
     const playable = view.you.hand.filter(
-      (c) => view.topCard && view.currentColor && canPlay(c, view.topCard, view.currentColor),
+      (c) => view.topCard && view.currentColor && canPlay(c, view.topCard, view.currentColor, view.pendingDraw),
     );
     const waiter = Promise.all(sockets.map((s) => nextState(s)));
     if (playable[0]) {

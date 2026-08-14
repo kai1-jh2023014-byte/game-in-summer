@@ -1,5 +1,5 @@
 import type { Card, GameState, SpecialRuleId } from "./types.js";
-import { PARTY_CARD_TYPES, isPartyType } from "./types.js";
+import { PARTY_CARD_TYPES, UNO_CATCH_MS, isPartyType } from "./types.js";
 import { shuffle, type Rng } from "./deck.js";
 
 export type PartyCardType = (typeof PARTY_CARD_TYPES)[number];
@@ -59,9 +59,9 @@ export function pickSpecialRules(rng: Rng): SpecialRuleId[] {
 export function partyCopies(rules: SpecialRuleId[]): Record<PartyCardType, number> {
   const wild = rules.includes("wildParty") ? 1 : 0;
   return {
-    gift: 2,
-    target: 2,
-    rotate: 2,
+    gift: 3,
+    target: 3,
+    rotate: 3,
     spy: 2,
     bomb: 2,
     king: 2,
@@ -115,7 +115,15 @@ export function passOneAround(state: GameState, rng: Rng): void {
 }
 
 function resetUnoFlags(state: GameState): void {
+  const now = Date.now();
   for (const p of state.players) {
-    if (p.hand.length > 1) p.calledUno = false;
+    if (p.hand.length > 1) {
+      p.calledUno = false;
+      p.unoCatchUntil = null;
+    } else if (p.hand.length === 1 && !p.calledUno) {
+      p.unoCatchUntil = now + UNO_CATCH_MS;
+    } else {
+      p.unoCatchUntil = null;
+    }
   }
 }

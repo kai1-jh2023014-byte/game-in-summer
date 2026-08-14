@@ -56,6 +56,7 @@ export interface Player {
   socketId: string | null;
   hand: Card[];
   calledUno: boolean;
+  unoCatchUntil: number | null;
   connected: boolean;
   teamId: TeamId | null;
   isHost: boolean;
@@ -77,6 +78,7 @@ export type SpecialRuleId =
 export interface PlayExtras {
   targetPlayerId?: string;
   giftCardId?: string;
+  extraCardIds?: string[];
 }
 
 export interface SecretPayload {
@@ -120,10 +122,11 @@ export interface GameState {
   luckyNumber: number | null;
   bonusAction: boolean;
   chaosUsed: boolean;
+  pendingDraw: number;
 }
 
 export type GameEvent =
-  | { type: "play"; playerId: string; card: Card }
+  | { type: "play"; playerId: string; card: Card; count?: number }
   | { type: "draw"; playerId: string; count: number }
   | { type: "skip"; playerId: string }
   | { type: "reverse" }
@@ -143,7 +146,9 @@ export type GameEvent =
   | { type: "king"; playerId: string; targetId: string }
   | { type: "spy"; playerId: string; targetId: string }
   | { type: "extraTurn"; playerId: string }
-  | { type: "rules"; rules: SpecialRuleId[]; luckyNumber: number | null };
+  | { type: "rules"; rules: SpecialRuleId[]; luckyNumber: number | null }
+  | { type: "stack"; total: number; added: number }
+  | { type: "multi"; playerId: string; value: number; count: number };
 
 export type ActionOk = { ok: true; events: GameEvent[]; secrets?: SecretPayload[] };
 export type ActionFail = { ok: false; error: string };
@@ -154,6 +159,7 @@ export interface PublicPlayer {
   name: string;
   cardCount: number;
   calledUno: boolean;
+  unoCatchUntil: number | null;
   connected: boolean;
   teamId: TeamId | null;
   isHost: boolean;
@@ -194,6 +200,7 @@ export interface ClientState {
   mode: GameMode;
   specialRules: SpecialRuleId[];
   luckyNumber: number | null;
+  pendingDraw: number;
 }
 
 export const MIN_PLAYERS = 2;
@@ -201,3 +208,5 @@ export const MAX_PLAYERS = 10;
 export const HAND_SIZE = 7;
 export const MAX_TEAMS = 4;
 export const MIN_TEAMS = 2;
+export const UNO_CATCH_MS = 3000;
+export const UNO_CATCH_PENALTY = 1;

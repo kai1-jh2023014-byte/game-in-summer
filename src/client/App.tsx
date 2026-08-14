@@ -1,69 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import type { ClientState, Color, GameEvent, PlayExtras, SecretPayload, TeamId } from "../shared/types";
-import { RULE_INFO } from "../shared/party";
 import { CardView } from "./components/CardView";
 import { ConnectionBanner, Toast } from "./components/ConnectionBanner";
 import { DebugPanel } from "./components/DebugPanel";
+import { EventLog, HandPop, PlayFX } from "./components/PlayFX";
+import { noticesFromEvents, pickFx, pickToast } from "./notices";
+import { Demo } from "./screens/Demo";
 import { Game } from "./screens/Game";
 import { Home } from "./screens/Home";
 import { Lobby } from "./screens/Lobby";
 import { Results } from "./screens/Results";
 import { createSocket } from "./socket";
 import { playEventSounds, unlockAudio } from "./sounds";
-import { getPlayerId, getSavedName, isMuted, saveName, setMuted } from "./storage";
+import { getPlayerId, getSavedName, isMuted, saveName, setMuted, setSkipDemo, shouldSkipDemo } from "./storage";
 
 type Conn = "connecting" | "connected" | "reconnecting" | "offline";
-
-function eventMessage(events: GameEvent[], state: ClientState | null): string | null {
-  const last = events[events.length - 1];
-  if (!last || !state) return null;
-  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? "誰か";
-  switch (last.type) {
-    case "play":
-      return `${name(last.playerId)} がカードを出した！`;
-    case "draw":
-      return `${name(last.playerId)} が ${last.count} 枚引いた`;
-    case "skip":
-      return `${name(last.playerId)} はスキップ`;
-    case "reverse":
-      return "🔄 リバース！";
-    case "uno":
-      return `${name(last.playerId)} 「UNO!」`;
-    case "caught":
-      return `${name(last.byPlayerId)} が ${name(last.playerId)} のUNO忘れを指摘！`;
-    case "win":
-      return `🏆 ${name(last.playerId)} の勝ち！`;
-    case "teamWin": {
-      const t = state.teams.find((x) => x.id === last.teamId);
-      return `🏆 ${t?.name ?? "チーム"} の勝ち！`;
-    }
-    case "gift":
-      return `🎁 ${name(last.playerId)} → ${name(last.targetId)}`;
-    case "exchange":
-      return `🃏 ${name(last.playerId)} と ${name(last.targetId)} が手札交換！`;
-    case "target":
-      return `🎯 ${name(last.targetId)} が指名された`;
-    case "rotate":
-      return "🔄 手札が隣へ移動！";
-    case "chaos":
-      return "🌪️ 全員シャッフル！";
-    case "bomb":
-      return `💣 ${name(last.playerId)} にボム`;
-    case "king":
-      return `👑 次は ${name(last.targetId)}`;
-    case "spy":
-      return `🕵️ ${name(last.playerId)} が覗いた`;
-    case "extraTurn":
-      return `✨ ${name(last.playerId)} もう一度！`;
-    case "rules":
-      return last.rules.map((id) => `${RULE_INFO[id].emoji} ${RULE_INFO[id].title}`).join(" / ");
-    case "host":
-      return `${name(last.playerId)} がホストになりました`;
-    default:
-      return null;
-  }
-}
 
 export function App() {
   const socketRef = useRef<Socket | null>(null);
@@ -75,7 +27,13 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [muted, setMutedState] = useState(isMuted);
   const [secret, setSecret] = useState<SecretPayload | null>(null);
+  const [demo, setDemo] = useState(false);
+  const [intro, setIntro] = useState(() => !shouldSkipDemo());
+  const [fx, setFx] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [handPop, setHandPop] = useState<string | null>(null);
   const lastCode = useRef<string | null>(null);
+  const handCount = useRef(0);
 
   const showToast = useCallback((msg: string | null) => {
     if (!msg) return;
@@ -147,6 +105,14 @@ export function App() {
     });
     socket.on("connect_error", () => setConn("reconnecting"));
     socket.on("room:state", (next: ClientState) => {
+      const prev = handCount.current;
+      const nextCount = next.you.hand.length + (next.drawnCard ? 1 : 0);
+      if (prev > 0 && next.status === "playing" && nextCount !== prev) {
+        const delta = nextCount - prev;
+        setHandPop(delta > 0 ? `📥 +${delta}  カードを${delta}枚引きました` : `✨ 残り${nextCount}枚！`);
+        window.setTimeout(() => setHandPop(null), 1400);
+      }
+      handCount.current = nextCount;
       setState(next);
       lastCode.current = next.code;
       setBusy(null);
@@ -159,7 +125,16 @@ export function App() {
     socket.on("game:event", (events: GameEvent[]) => {
       playEventSounds(events);
       setState((cur) => {
-        showToast(eventMessage(events, cur));
+        const notices = noticesFromEvents(events, cur);
+        const toast = pickToast(notices);
+        const burst = pickFx(notices);
+        if (toast) showToast(toast);
+        if (burst) {
+          setFx(burst);
+          window.setTimeout(() => setFx((now) => (now === burst ? null : now)), 1300);
+        }
+        const lines = notices.map((n) => n.log).filter(Boolean);
+        if (lines.length) setLog((old) => [...lines, ...old].slice(0, 4));
         return cur;
       });
     });
@@ -216,11 +191,27 @@ export function App() {
     setState(null);
   }
 
-  const screen = !state ? "home" : state.status === "lobby" ? "lobby" : state.status === "finished" ? "results" : "game";
+  const screen = demo
+    ? "demo"
+    : !state
+      ? "home"
+      : state.status === "lobby"
+        ? "lobby"
+        : state.status === "finished"
+          ? "results"
+          : "game";
 
   return (
     <div className="app" onPointerDown={unlockAudio}>
       <ConnectionBanner status={conn} />
+      {screen === "demo" && (
+        <Demo
+          onDone={() => {
+            setDemo(false);
+            setIntro(false);
+          }}
+        />
+      )}
       {screen === "home" && (
         <Home
           name={name}
@@ -229,8 +220,17 @@ export function App() {
           setCode={setCode}
           busy={busy}
           ready={conn === "connected"}
+          intro={intro}
           onCreate={onCreate}
           onJoin={onJoin}
+          onDemo={() => {
+            setIntro(false);
+            setDemo(true);
+          }}
+          onDismissIntro={(skipNext) => {
+            setIntro(false);
+            if (skipNext) setSkipDemo(true);
+          }}
         />
       )}
       {screen === "lobby" && state && (
@@ -244,6 +244,7 @@ export function App() {
           onRandom={() => emit("lobby:randomTeams")}
           onMove={(playerId, teamId: TeamId) => emit("lobby:moveTeam", { playerId, teamId })}
           onMode={(mode) => emit("lobby:mode", { mode })}
+          onDemo={() => setDemo(true)}
         />
       )}
       {screen === "game" && state && (
@@ -290,6 +291,9 @@ export function App() {
           </div>
         </div>
       )}
+      <PlayFX title={fx} />
+      <HandPop text={handPop} />
+      {screen === "game" && <EventLog lines={log} />}
       <Toast message={toast} />
       <DebugPanel state={state} />
     </div>

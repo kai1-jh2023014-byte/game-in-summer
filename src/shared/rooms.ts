@@ -53,6 +53,7 @@ export function createEmptyState(code: string, host: Player): GameState {
     luckyNumber: null,
     bonusAction: false,
     chaosUsed: false,
+    pendingDraw: 0,
   };
 }
 
@@ -64,6 +65,7 @@ export function makePlayer(id: string, name: string, isHost: boolean): Player {
     socketId: null,
     hand: [],
     calledUno: false,
+    unoCatchUntil: null,
     connected: true,
     teamId: null,
     isHost,

@@ -204,6 +204,7 @@ export function attachSockets(io: Server, manager: RoomManager): void {
           sayUno,
           targetPlayerId,
           giftCardId,
+          extraCardIds,
         }: { cardId: string; color?: Color; sayUno?: boolean } & PlayExtras,
         ack?: (a: Ack) => void,
       ) => {
@@ -214,6 +215,7 @@ export function attachSockets(io: Server, manager: RoomManager): void {
           manager.play(session.code, session.playerId, cardId, color, sayUno, {
             targetPlayerId,
             giftCardId,
+            extraCardIds,
           }),
           ack,
         );

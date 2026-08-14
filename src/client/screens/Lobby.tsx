@@ -9,6 +9,7 @@ export function Lobby({
   onRandom,
   onMove,
   onMode,
+  onDemo,
   shareUrl,
 }: {
   state: ClientState;
@@ -19,6 +20,7 @@ export function Lobby({
   onRandom: () => void;
   onMove: (playerId: string, teamId: TeamId) => void;
   onMode: (mode: GameMode) => void;
+  onDemo: () => void;
   shareUrl: string;
 }) {
   const host = state.you.isHost;
@@ -47,9 +49,14 @@ export function Lobby({
           <p className="eyebrow">🎴 NANAIRO</p>
           <h1>Room {state.code}</h1>
         </div>
-        <button type="button" className="btn ghost" onClick={onLeave}>
-          退出
-        </button>
+        <div className="row">
+          <button type="button" className="btn ghost" onClick={onDemo}>
+            デモ
+          </button>
+          <button type="button" className="btn ghost" onClick={onLeave}>
+            退出
+          </button>
+        </div>
       </header>
 
       <section className="code-share">
@@ -130,8 +137,8 @@ export function Lobby({
         </div>
         <p className="hint">
           {state.mode === "party"
-            ? "特殊カードと、試合ごとの「今日のルール」が入ります。"
-            : "いつものシンプルなルールです。"}
+            ? "特殊カードと「今日のルール」に加え、同じ数字の複数出しと +2/+4 のスタックがあります。"
+            : "同じ色か同じ数字を出します。同じ数字はまとめて出せます。+2 と +4 は積み重ねられます。"}
         </p>
       </section>
 

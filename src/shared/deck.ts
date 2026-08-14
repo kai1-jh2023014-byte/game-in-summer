@@ -37,11 +37,17 @@ export function createDeck(): Card[] {
 
 export function createPartyDeck(rules: SpecialRuleId[] = []): Card[] {
   const deck = createDeck();
+  // 7人でも数字の組み合わせと複数出しが起きやすいよう、4〜7を1枚ずつ足す
+  for (const color of COLORS) {
+    for (const n of [4, 5, 6, 7]) {
+      deck.push({ id: nextId(), type: "number", color, value: n });
+    }
+  }
   const extra = rules.includes("wildParty") ? 1 : 0;
   const copies: Record<string, number> = {
-    gift: 2,
-    target: 2,
-    rotate: 2,
+    gift: 3,
+    target: 3,
+    rotate: 3,
     spy: 2,
     bomb: 2,
     king: 2,
@@ -75,7 +81,18 @@ export function isWild(card: Card): boolean {
   return card.type === "wild" || card.type === "wildDraw4";
 }
 
-export function canPlay(card: Card, top: Card, currentColor: Color): boolean {
+export function isStackCard(card: Card): boolean {
+  return card.type === "draw2" || card.type === "wildDraw4";
+}
+
+export function stackValue(card: Card): number {
+  if (card.type === "draw2") return 2;
+  if (card.type === "wildDraw4") return 4;
+  return 0;
+}
+
+export function canPlay(card: Card, top: Card, currentColor: Color, pendingDraw = 0): boolean {
+  if (pendingDraw > 0) return isStackCard(card);
   if (card.type === "wild" || card.type === "wildDraw4" || isPartyType(card.type)) return true;
   if (card.color === currentColor) return true;
   if (card.type === "number" && top.type === "number" && card.value === top.value) {
@@ -87,8 +104,8 @@ export function canPlay(card: Card, top: Card, currentColor: Color): boolean {
   return false;
 }
 
-export function hasPlayable(hand: Card[], top: Card, currentColor: Color): boolean {
-  return hand.some((c) => canPlay(c, top, currentColor));
+export function hasPlayable(hand: Card[], top: Card, currentColor: Color, pendingDraw = 0): boolean {
+  return hand.some((c) => canPlay(c, top, currentColor, pendingDraw));
 }
 
 export function cardLabel(card: Card): string {

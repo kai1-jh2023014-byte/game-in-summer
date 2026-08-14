@@ -5,8 +5,11 @@ export function Home({
   setCode,
   busy,
   ready,
+  intro,
   onCreate,
   onJoin,
+  onDemo,
+  onDismissIntro,
 }: {
   name: string;
   setName: (v: string) => void;
@@ -14,8 +17,11 @@ export function Home({
   setCode: (v: string) => void;
   busy: string | null;
   ready: boolean;
+  intro: boolean;
   onCreate: () => void;
   onJoin: () => void;
+  onDemo: () => void;
+  onDismissIntro: (skipNext: boolean) => void;
 }) {
   return (
     <main className="screen home">
@@ -61,10 +67,37 @@ export function Home({
         <button type="submit" className="btn secondary xl" disabled={!!busy || !ready}>
           🚀 ルームに入る
         </button>
+        <button type="button" className="btn ghost xl" onClick={onDemo} style={{ marginTop: 10 }}>
+          👀 デモプレイを見る
+        </button>
       </form>
       {busy && <p className="status-msg">{busy}</p>}
       {!ready && !busy && <p className="status-msg">🎮 サーバーに接続しています...</p>}
       {ready && !busy && <p className="status-msg ok">接続OK</p>}
+
+      {intro && (
+        <div className="overlay" role="dialog" aria-label="はじめて遊びますか？">
+          <div className="overlay-card">
+            <h2>はじめて遊びますか？</h2>
+            <p className="hint">1分のデモで、出し方・+2・UNO がわかります。</p>
+            <button type="button" className="btn primary xl" onClick={onDemo}>
+              👀 デモプレイを見る
+            </button>
+            <button type="button" className="btn secondary xl" onClick={() => onDismissIntro(false)}>
+              🎮 すぐ遊ぶ
+            </button>
+            <label className="hint" style={{ marginTop: 12 }}>
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  if (e.target.checked) onDismissIntro(true);
+                }}
+              />{" "}
+              次から自動的にデモを表示しない
+            </label>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

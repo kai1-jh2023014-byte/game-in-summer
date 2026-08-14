@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Card, ClientState, Color, PlayExtras } from "../../shared/types";
 import { canPlay, isWild } from "../../shared/deck";
 import { CARD_INFO, needsTarget, RULE_INFO, type PartyCardType } from "../../shared/party";
@@ -31,27 +31,40 @@ export function Game({
   onUno: () => void;
   onCatch: (targetId: string) => void;
 }) {
-  const [selected, setSelected] = useState<Card | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [picking, setPicking] = useState<Card | null>(null);
   const [targeting, setTargeting] = useState<Card | null>(null);
   const [gifting, setGifting] = useState<{ card: Card; targetId: string } | null>(null);
   const [help, setHelp] = useState<Card | null>(null);
   const [unoArmed, setUnoArmed] = useState(false);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 250);
+    return () => window.clearInterval(id);
+  }, []);
 
   const isMe = state.currentPlayerId === state.you.id;
   const top = state.topCard;
   const color = state.currentColor;
+  const pending = state.pendingDraw ?? 0;
   const current = state.players.find((p) => p.id === state.currentPlayerId);
   const opponents = state.players.filter((p) => p.id !== state.you.id);
   const hand = useMemo(() => sortHand(state.you.hand), [state.you.hand]);
+  const now = Date.now();
   const catchable = state.players.filter(
-    (p) => p.id !== state.you.id && p.cardCount === 1 && !p.calledUno,
+    (p) => p.id !== state.you.id && p.cardCount === 1 && !p.calledUno && (p.unoCatchUntil ?? 0) > now,
   );
 
+  const selectedCards = selected
+    .map((id) => hand.find((c) => c.id === id) ?? (state.drawnCard?.id === id ? state.drawnCard : undefined))
+    .filter((c): c is Card => Boolean(c));
+
   function finishPlay(card: Card, chosen?: Color, extras?: PlayExtras) {
-    const say = unoArmed || state.you.hand.length <= 2;
-    onPlay(card.id, chosen, say, extras);
-    setSelected(null);
+    const extrasIds = selected.filter((id) => id !== card.id);
+    const say = unoArmed || state.you.hand.length - (1 + extrasIds.length) <= 1;
+    onPlay(card.id, chosen, say, { ...extras, extraCardIds: extrasIds.length ? extrasIds : extras?.extraCardIds });
+    setSelected([]);
     setPicking(null);
     setTargeting(null);
     setGifting(null);
@@ -61,7 +74,7 @@ export function Game({
   function tryPlay(card: Card, chosen?: Color) {
     if (!isMe || busy) return;
     if (state.drawnCard && card.id !== state.drawnCard.id) return;
-    if (!top || !color || !canPlay(card, top, color)) return;
+    if (!top || !color || !canPlay(card, top, color, pending)) return;
     if (isWild(card) && !chosen) {
       setPicking(card);
       return;
@@ -93,12 +106,29 @@ export function Game({
       setHelp(card);
       return;
     }
-    if (selected?.id === card.id) tryPlay(card);
-    else setSelected(card);
+    if (state.drawnCard) {
+      if (card.id === state.drawnCard.id) tryPlay(card);
+      return;
+    }
+    if (card.type === "number") {
+      const first = selectedCards[0];
+      if (!first) {
+        setSelected([card.id]);
+        return;
+      }
+      if (first.type === "number" && first.value === card.value) {
+        setSelected((cur) => (cur.includes(card.id) ? cur.filter((id) => id !== card.id) : [...cur, card.id]));
+        return;
+      }
+    }
+    if (selected.length === 1 && selected[0] === card.id) tryPlay(card);
+    else setSelected([card.id]);
   }
 
   const displayHand = state.drawnCard ? [state.drawnCard, ...hand] : hand;
   const party = state.mode === "party";
+  const canMulti = selectedCards.length >= 2 && selectedCards.every((c) => c.type === "number");
+  const lead = selectedCards[0];
 
   return (
     <main className="screen game">
@@ -109,6 +139,13 @@ export function Game({
         </span>
         <span className="dir">{state.direction === 1 ? "⤵" : "⤴"}</span>
       </header>
+
+      {pending > 0 && (
+        <div className="stack-banner" role="status">
+          💥 いま <strong>+{pending}</strong> のスタック
+          {isMe ? " — +2 / +4 を出すか、引いてください" : ""}
+        </div>
+      )}
 
       {party && state.specialRules.length > 0 && (
         <div className="rule-bar">
@@ -128,7 +165,7 @@ export function Game({
             type="button"
             className={`opp ${p.isCurrent ? "current" : ""} ${p.connected ? "" : "offline"}`}
             onClick={() => {
-              if (p.cardCount === 1 && !p.calledUno) onCatch(p.id);
+              if (p.cardCount === 1 && !p.calledUno && (p.unoCatchUntil ?? 0) > Date.now()) onCatch(p.id);
             }}
           >
             <span className="opp-emoji">{p.teamId ? teamEmoji(state, p.teamId) : "👤"}</span>
@@ -154,7 +191,7 @@ export function Game({
         <div className="catch-bar">
           {catchable.map((p) => (
             <button key={p.id} type="button" className="btn danger" onClick={() => onCatch(p.id)}>
-              📣 {p.name} のUNO忘れ！
+              🚨 {p.name} UNO言ってない！
             </button>
           ))}
         </div>
@@ -174,13 +211,13 @@ export function Game({
         <div className="hand-label">YOUR HAND · {state.you.hand.length + (state.drawnCard ? 1 : 0)}枚</div>
         <div className="hand">
           {displayHand.map((card) => {
-            const playable = Boolean(isMe && top && color && canPlay(card, top, color));
+            const playable = Boolean(isMe && top && color && canPlay(card, top, color, pending));
             const locked = Boolean(state.drawnCard && card.id !== state.drawnCard.id);
             return (
               <CardView
                 key={card.id}
                 card={card}
-                selected={selected?.id === card.id}
+                selected={selected.includes(card.id)}
                 playable={playable && !locked}
                 dimmed={!isMe || locked || !playable}
                 onClick={() => onCardTap(card)}
@@ -191,9 +228,25 @@ export function Game({
         </div>
       </section>
 
+      {canMulti && lead && (
+        <button
+          type="button"
+          className="btn primary xl"
+          disabled={!isMe || busy}
+          onClick={() => tryPlay(lead)}
+        >
+          {selectedCards.length}枚出す（{lead.value}）
+        </button>
+      )}
+
       <footer className="actions">
-        <button type="button" className="btn secondary xl" onClick={onDraw} disabled={!isMe || busy || !!state.drawnCard}>
-          カードを引く
+        <button
+          type="button"
+          className="btn secondary xl"
+          onClick={onDraw}
+          disabled={!isMe || busy || !!state.drawnCard}
+        >
+          {pending > 0 && isMe ? `💥 ${pending}枚引く` : "カードを引く"}
         </button>
         <button
           type="button"

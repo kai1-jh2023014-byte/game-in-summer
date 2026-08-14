@@ -53,3 +53,13 @@ export function isMuted(): boolean {
 export function setMuted(muted: boolean): void {
   write(MUTE, muted ? "1" : "0");
 }
+
+const SKIP_DEMO = "nanairo.skipDemo";
+
+export function shouldSkipDemo(): boolean {
+  return read(SKIP_DEMO) === "1";
+}
+
+export function setSkipDemo(skip: boolean): void {
+  write(SKIP_DEMO, skip ? "1" : "0");
+}

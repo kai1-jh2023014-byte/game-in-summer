@@ -9,8 +9,8 @@ import type {
   Ranking,
   SecretPayload,
 } from "./types.js";
-import { HAND_SIZE, MIN_PLAYERS } from "./types.js";
-import { canPlay, createDeckFor, isWild, shuffle, type Rng } from "./deck.js";
+import { HAND_SIZE, MIN_PLAYERS, UNO_CATCH_MS, UNO_CATCH_PENALTY } from "./types.js";
+import { canPlay, createDeckFor, isStackCard, isWild, shuffle, stackValue, type Rng } from "./deck.js";
 import { allPlayersHaveTeams, assignBalancedTeams } from "./teams.js";
 import {
   isPartyCard,
@@ -79,7 +79,22 @@ export function drawCards(
     drawn.push(card);
   }
   if (player.hand.length > 1) player.calledUno = false;
+  refreshUnoWindow(player);
   return drawn;
+}
+
+function refreshUnoWindow(player: Player, extraPending = 0, now = Date.now()): void {
+  const total = player.hand.length + extraPending;
+  if (total !== 1) {
+    player.unoCatchUntil = null;
+    if (total > 1) player.calledUno = false;
+    return;
+  }
+  if (player.calledUno) {
+    player.unoCatchUntil = null;
+    return;
+  }
+  if (!player.unoCatchUntil) player.unoCatchUntil = now + UNO_CATCH_MS;
 }
 
 function requireTurn(state: GameState, playerId: string): string | null {
@@ -153,18 +168,11 @@ function applyEffectAndAdvance(
     const skipped = nextPlayerId(state, current, 1);
     events.push({ type: "skip", playerId: skipped });
     steps = 2;
-  } else if (card.type === "draw2") {
-    const victim = nextPlayerId(state, current, 1);
-    drawCards(state, victim, 2, rng);
-    events.push({ type: "draw", playerId: victim, count: 2 });
-    events.push({ type: "skip", playerId: victim });
-    steps = 2;
-  } else if (card.type === "wildDraw4") {
-    const victim = nextPlayerId(state, current, 1);
-    drawCards(state, victim, 4, rng);
-    events.push({ type: "draw", playerId: victim, count: 4 });
-    events.push({ type: "skip", playerId: victim });
-    steps = 2;
+  } else if (card.type === "draw2" || card.type === "wildDraw4") {
+    const added = stackValue(card);
+    state.pendingDraw += added;
+    events.push({ type: "stack", total: state.pendingDraw, added });
+    steps = 1;
   } else if (isPartyCard(card)) {
     const party = runPartyEffect(state, card, current, extras, rng);
     events.push(...party.events);
@@ -320,11 +328,13 @@ export function dealAndStart(state: GameState, rng: Rng = Math.random): ActionRe
   }
   state.bonusAction = false;
   state.chaosUsed = false;
+  state.pendingDraw = 0;
 
   const deck = shuffle(createDeckFor(state.mode, state.specialRules), rng);
   for (const p of state.players) {
     p.hand = [];
     p.calledUno = false;
+    p.unoCatchUntil = null;
   }
   for (let i = 0; i < HAND_SIZE; i++) {
     for (const p of state.players) {
@@ -381,15 +391,35 @@ export function playCard(
   if (state.drawnCard && state.drawnCard.id !== cardId) {
     return fail("引いたカードだけ出せます");
   }
+  if (state.drawnCard && extras.extraCardIds?.length) {
+    return fail("引いたカードは1枚だけ出せます");
+  }
 
   const inHand = player.hand.find((c) => c.id === cardId);
   const playing = inHand ?? (state.drawnCard?.id === cardId ? state.drawnCard : undefined);
   if (!playing) return fail("そのカードを持っていません");
 
+  const extraIds = [...new Set((extras.extraCardIds ?? []).filter((id) => id && id !== cardId))];
+  if (extraIds.length && playing.type !== "number") {
+    return fail("数字カードだけ、同じ数字をまとめて出せます");
+  }
+  const extrasCards: Card[] = [];
+  for (const id of extraIds) {
+    const extra = player.hand.find((c) => c.id === id);
+    if (!extra) return fail("そのカードを持っていません");
+    if (extra.type !== "number" || extra.value !== playing.value) {
+      return fail("同じ数字のカードだけまとめて出せます");
+    }
+    extrasCards.push(extra);
+  }
+
   const top = topCard(state);
   if (!top || !state.currentColor) return fail("場のカードがありません");
-  if (!canPlay(playing, top, state.currentColor)) {
-    return fail("そのカードは出せません");
+  if (!canPlay(playing, top, state.currentColor, state.pendingDraw)) {
+    return fail(state.pendingDraw > 0 ? "いまは +2 か +4 だけ出せます" : "そのカードは出せません");
+  }
+  if (state.pendingDraw > 0 && !isStackCard(playing)) {
+    return fail("いまは +2 か +4 を出すか、カードを引いてください");
   }
 
   if (isWild(playing)) {
@@ -415,26 +445,34 @@ export function playCard(
 
   const prevColor = state.currentColor;
   const fromBonus = state.bonusAction;
+  const bundle = [playing, ...extrasCards];
+  const removeIds = new Set(bundle.map((c) => c.id));
 
-  player.hand = player.hand.filter((c) => c.id !== cardId);
-  if (state.drawnCard?.id === cardId) state.drawnCard = null;
+  player.hand = player.hand.filter((c) => !removeIds.has(c.id));
+  if (state.drawnCard && removeIds.has(state.drawnCard.id)) state.drawnCard = null;
 
-  state.discard.push(playing);
-  if (isWild(playing)) {
+  for (const card of bundle) state.discard.push(card);
+  const last = bundle[bundle.length - 1]!;
+  if (isWild(last) || isWild(playing)) {
     state.currentColor = chosenColor!;
-  } else if (playing.color !== "black") {
-    state.currentColor = playing.color;
+  } else if (last.color !== "black") {
+    state.currentColor = last.color;
   }
 
-  const events: GameEvent[] = [{ type: "play", playerId, card: playing }];
+  const events: GameEvent[] = [{ type: "play", playerId, card: last, count: bundle.length }];
+  if (bundle.length > 1 && playing.type === "number") {
+    events.push({ type: "multi", playerId, value: playing.value ?? 0, count: bundle.length });
+  }
   if (isWild(playing) && chosenColor) {
     events.push({ type: "color", color: chosenColor });
   }
 
-  if (player.hand.length > 1) player.calledUno = false;
   if (sayUno && player.hand.length <= 1) {
     player.calledUno = true;
+    player.unoCatchUntil = null;
     events.push({ type: "uno", playerId });
+  } else {
+    refreshUnoWindow(player);
   }
 
   touch(state);
@@ -445,7 +483,7 @@ export function playCard(
   }
 
   const beforeCounts = new Map(state.players.map((p) => [p.id, p.hand.length]));
-  const applied = applyEffectAndAdvance(state, playing, extras, rng, prevColor, fromBonus);
+  const applied = applyEffectAndAdvance(state, last, extras, rng, prevColor, fromBonus);
   events.push(...applied.events);
 
   if (state.status === "playing") {
@@ -474,6 +512,20 @@ export function drawCard(
   const player = getPlayer(state, playerId);
   if (!player) return fail("プレイヤーが見つかりません");
 
+  if (state.pendingDraw > 0) {
+    const count = state.pendingDraw;
+    drawCards(state, playerId, count, rng);
+    state.pendingDraw = 0;
+    state.phase = "play";
+    const nextId = nextPlayerId(state, playerId, 1);
+    state.currentPlayerId = nextId;
+    touch(state);
+    return ok([
+      { type: "draw", playerId, count },
+      { type: "turn", playerId: nextId },
+    ]);
+  }
+
   ensureDeck(state, rng);
   const card = state.deck.pop();
   if (!card) return fail("山札がありません");
@@ -481,7 +533,7 @@ export function drawCard(
   const top = topCard(state);
   const events: GameEvent[] = [{ type: "draw", playerId, count: 1 }];
 
-  if (top && state.currentColor && canPlay(card, top, state.currentColor)) {
+  if (top && state.currentColor && canPlay(card, top, state.currentColor, state.pendingDraw)) {
     state.drawnCard = card;
     state.phase = "drawn";
     touch(state);
@@ -489,7 +541,7 @@ export function drawCard(
   }
 
   player.hand.push(card);
-  if (player.hand.length > 1) player.calledUno = false;
+  refreshUnoWindow(player);
   state.drawnCard = null;
   state.phase = "play";
   const nextId = nextPlayerId(state, playerId, 1);
@@ -508,7 +560,7 @@ export function keepDrawn(state: GameState, playerId: string): ActionResult {
   if (!player) return fail("プレイヤーが見つかりません");
 
   player.hand.push(state.drawnCard);
-  if (player.hand.length > 1) player.calledUno = false;
+  refreshUnoWindow(player);
   state.drawnCard = null;
   state.phase = "play";
   const nextId = nextPlayerId(state, playerId, 1);
@@ -525,6 +577,7 @@ export function callUno(state: GameState, playerId: string): ActionResult {
   const total = player.hand.length + pending;
   if (total > 2) return fail("UNOは手札が1〜2枚のときだけ宣言できます");
   player.calledUno = true;
+  player.unoCatchUntil = null;
   touch(state);
   return ok([{ type: "uno", playerId }]);
 }
@@ -542,15 +595,20 @@ export function catchUno(
   if (!by || !target) return fail("プレイヤーが見つかりません");
   const pending = state.drawnCard && state.currentPlayerId === targetId ? 1 : 0;
   const total = target.hand.length + pending;
+  const now = Date.now();
   if (total !== 1 || target.calledUno) {
     return fail("今は指摘できません");
   }
-  drawCards(state, targetId, 2, rng);
+  if (!target.unoCatchUntil || now > target.unoCatchUntil) {
+    return fail("指摘できる時間が過ぎました");
+  }
+  drawCards(state, targetId, UNO_CATCH_PENALTY, rng);
   target.calledUno = false;
+  target.unoCatchUntil = null;
   touch(state);
   return ok([
     { type: "caught", playerId: targetId, byPlayerId },
-    { type: "draw", playerId: targetId, count: 2 },
+    { type: "draw", playerId: targetId, count: UNO_CATCH_PENALTY },
   ]);
 }
 
@@ -561,9 +619,14 @@ export function forcePass(state: GameState, playerId: string, rng: Rng = Math.ra
   if (!player) return fail("プレイヤーが見つかりません");
 
   const events: GameEvent[] = [];
-  if (state.drawnCard) {
+  if (state.pendingDraw > 0) {
+    const count = state.pendingDraw;
+    drawCards(state, playerId, count, rng);
+    state.pendingDraw = 0;
+    events.push({ type: "draw", playerId, count });
+  } else if (state.drawnCard) {
     player.hand.push(state.drawnCard);
-    if (player.hand.length > 1) player.calledUno = false;
+    refreshUnoWindow(player);
     state.drawnCard = null;
   } else {
     drawCards(state, playerId, 1, rng);
@@ -593,9 +656,11 @@ export function returnToLobby(state: GameState): void {
   state.luckyNumber = null;
   state.bonusAction = false;
   state.chaosUsed = false;
+  state.pendingDraw = 0;
   for (const p of state.players) {
     p.hand = [];
     p.calledUno = false;
+    p.unoCatchUntil = null;
   }
   touch(state);
 }

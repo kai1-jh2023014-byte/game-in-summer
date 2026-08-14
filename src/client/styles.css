@@ -681,6 +681,82 @@ select.team-select {
   color: var(--muted);
 }
 
+.stack-banner {
+  text-align: center;
+  font-weight: 800;
+  background: #c43c6b;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.fx-layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+}
+
+.fx-burst {
+  font-size: clamp(36px, 12vw, 64px);
+  font-weight: 900;
+  text-align: center;
+  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  animation: fxpop 1.15s ease forwards;
+}
+
+@keyframes fxpop {
+  0% { transform: translateY(24px) scale(0.7); opacity: 0; }
+  18% { transform: translateY(0) scale(1.12); opacity: 1; }
+  70% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.96); opacity: 0; }
+}
+
+.event-log {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.event-log li {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 8px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hand-pop {
+  position: fixed;
+  left: 50%;
+  top: 28%;
+  transform: translateX(-50%);
+  z-index: 35;
+  background: #111;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  animation: fxpop 1.3s ease forwards;
+  pointer-events: none;
+}
+
+.demo-fx {
+  min-height: 72px;
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
 @media (max-width: 374px) {
   .card {
     flex-basis: 64px;

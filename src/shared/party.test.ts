@@ -63,8 +63,8 @@ describe("party cards", () => {
   it("adds a small set of party cards", () => {
     const deck = createPartyDeck([]);
     const party = deck.filter(isPartyCard);
-    expect(deck.length).toBe(108 + 14);
-    expect(party.length).toBe(14);
+    expect(deck.length).toBe(108 + 16 + 17);
+    expect(party.length).toBe(17);
     expect(party.length / deck.length).toBeLessThan(0.2);
   });
 
@@ -239,7 +239,10 @@ describe("party 7-player games", () => {
         continue;
       }
       const playable = view.you.hand.filter(
-        (c) => view.topCard && view.currentColor && canPlay(c, view.topCard, view.currentColor),
+        (c) =>
+          view.topCard &&
+          view.currentColor &&
+          canPlay(c, view.topCard, view.currentColor, view.pendingDraw),
       );
       if (playable[0]) {
         const card = playable[0];
