@@ -1,4 +1,5 @@
-import type { ClientState, GameMode, TeamId } from "../../shared/types";
+import type { CardVolume, ClientState, GameMode, SpecialMix, TeamId } from "../../shared/types";
+import { CARD_VOLUME_INFO, CARD_VOLUMES, SPECIAL_MIX_INFO, SPECIAL_MIXES } from "../../shared/settings";
 
 export function Lobby({
   state,
@@ -9,6 +10,8 @@ export function Lobby({
   onRandom,
   onMove,
   onMode,
+  onCardVolume,
+  onSpecialMix,
   onDemo,
   shareUrl,
 }: {
@@ -20,6 +23,8 @@ export function Lobby({
   onRandom: () => void;
   onMove: (playerId: string, teamId: TeamId) => void;
   onMode: (mode: GameMode) => void;
+  onCardVolume: (volume: CardVolume) => void;
+  onSpecialMix: (mix: SpecialMix) => void;
   onDemo: () => void;
   shareUrl: string;
 }) {
@@ -139,6 +144,46 @@ export function Lobby({
           {state.mode === "party"
             ? "特殊カードと「今日のルール」に加え、同じ数字の複数出しと +2/+4 のスタックがあります。"
             : "同じ色か同じ数字を出します。同じ数字はまとめて出せます。+2 と +4 は積み重ねられます。"}
+        </p>
+      </section>
+
+      <section className="panel">
+        <h2>カードの量</h2>
+        <div className="row wrap">
+          {CARD_VOLUMES.map((volume) => (
+            <button
+              key={volume}
+              type="button"
+              className={`btn ${(state.cardVolume ?? "normal") === volume ? "primary" : "ghost"}`}
+              onClick={() => onCardVolume(volume)}
+              disabled={!host}
+            >
+              {CARD_VOLUME_INFO[volume].label}
+            </button>
+          ))}
+        </div>
+        <p className="hint">{CARD_VOLUME_INFO[state.cardVolume ?? "normal"].hint}</p>
+      </section>
+
+      <section className="panel">
+        <h2>特殊カード</h2>
+        <div className="row">
+          {SPECIAL_MIXES.map((mix) => (
+            <button
+              key={mix}
+              type="button"
+              className={`btn ${(state.specialMix ?? "normal") === mix ? "primary" : "ghost"}`}
+              onClick={() => onSpecialMix(mix)}
+              disabled={!host}
+            >
+              {SPECIAL_MIX_INFO[mix].label}
+            </button>
+          ))}
+        </div>
+        <p className="hint">
+          {(state.specialMix ?? "normal") === "lots"
+            ? "パーティモードで、KING などの特殊カードがたくさん出ます。"
+            : SPECIAL_MIX_INFO[state.specialMix ?? "normal"].hint}
         </p>
       </section>
 

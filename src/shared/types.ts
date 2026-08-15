@@ -67,6 +67,8 @@ export type RoomStatus = "lobby" | "playing" | "finished";
 export type TurnDirection = 1 | -1;
 export type GamePhase = "lobby" | "play" | "drawn" | "finished";
 export type GameMode = "classic" | "party";
+export type CardVolume = "low" | "normal" | "high" | "max";
+export type SpecialMix = "normal" | "lots";
 export type SpecialRuleId =
   | "colorFest"
   | "reversePass"
@@ -118,6 +120,8 @@ export interface GameState {
   createdAt: number;
   updatedAt: number;
   mode: GameMode;
+  cardVolume: CardVolume;
+  specialMix: SpecialMix;
   specialRules: SpecialRuleId[];
   luckyNumber: number | null;
   bonusAction: boolean;
@@ -198,6 +202,8 @@ export interface ClientState {
   playerCount: number;
   maxPlayers: number;
   mode: GameMode;
+  cardVolume: CardVolume;
+  specialMix: SpecialMix;
   specialRules: SpecialRuleId[];
   luckyNumber: number | null;
   pendingDraw: number;

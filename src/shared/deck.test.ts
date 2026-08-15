@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canPlay, createDeck, isWild, resetCardSeq, shuffle } from "./deck.js";
+import { canPlay, canPlayWithCombo, createDeck, createDeckFor, createPartyDeck, isWild, resetCardSeq, shuffle } from "./deck.js";
 import type { Card, Color } from "./types.js";
 
 function card(partial: Partial<Card> & Pick<Card, "type">): Card {
@@ -61,5 +61,41 @@ describe("canPlay", () => {
     const wildTop = card({ type: "wild", color: "black" });
     expect(canPlay(card({ type: "number", color: "yellow", value: 1 }), wildTop, "yellow")).toBe(true);
     expect(canPlay(card({ type: "number", color: "red", value: 1 }), wildTop, "yellow")).toBe(false);
+  });
+});
+
+describe("card volume and special mix", () => {
+  it("keeps classic 108 at the default volume", () => {
+    expect(createDeckFor("classic")).toHaveLength(108);
+  });
+
+  it("adds extra number cards when volume is high or max", () => {
+    const high = createDeckFor("classic", [], { cardVolume: "high" });
+    const max = createDeckFor("classic", [], { cardVolume: "max" });
+    expect(high.length).toBe(108 + 76);
+    expect(max.length).toBe(108 + 152);
+    expect(high.every((c) => c.type !== "gift")).toBe(true);
+  });
+
+  it("doubles party cards in lots mix", () => {
+    const normal = createPartyDeck([]);
+    const lots = createPartyDeck([], { specialMix: "lots" });
+    const partyCount = (deck: { type: string }[]) =>
+      deck.filter((c) => ["gift", "target", "rotate", "spy", "bomb", "king", "exchange", "chaos"].includes(c.type)).length;
+    expect(partyCount(normal)).toBe(17);
+    expect(partyCount(lots)).toBeGreaterThan(30);
+    expect(lots.length).toBeGreaterThan(normal.length);
+  });
+});
+
+describe("canPlayWithCombo", () => {
+  it("lights up same-number partners that are not playable alone", () => {
+    const top = card({ type: "number", color: "red", value: 3 });
+    const red7 = card({ id: "r7", type: "number", color: "red", value: 7 });
+    const blue7 = card({ id: "b7", type: "number", color: "blue", value: 7 });
+    const hand = [red7, blue7];
+    expect(canPlay(blue7, top, "red")).toBe(false);
+    expect(canPlayWithCombo(blue7, hand, top, "red")).toBe(true);
+    expect(canPlayWithCombo(red7, hand, top, "red")).toBe(true);
   });
 });

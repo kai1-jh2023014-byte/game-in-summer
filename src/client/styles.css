@@ -535,8 +535,23 @@ select.team-select {
 }
 
 .card.playable {
-  transform: translateY(-6px);
-  box-shadow: 0 0 0 2px #fff, 0 10px 20px rgba(255, 209, 102, 0.45);
+  transform: translateY(-8px);
+  box-shadow: 0 0 0 3px #ffe082, 0 12px 22px rgba(255, 209, 102, 0.55);
+}
+
+@keyframes playable-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px #ffe082, 0 12px 22px rgba(255, 209, 102, 0.45); }
+  50% { box-shadow: 0 0 0 5px #fff3c4, 0 14px 26px rgba(255, 209, 102, 0.75); }
+}
+
+.card.playable:not(.selected) {
+  animation: playable-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.playable:not(.selected) {
+    animation: none;
+  }
 }
 
 .card.selected {

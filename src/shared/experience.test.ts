@@ -99,6 +99,25 @@ describe("same-number multi play", () => {
     give(state, "p0", [{ id: "r7", type: "number", color: "red", value: 7 }]);
     expect(playCard(state, "p0", "r7", undefined, false, Math.random, { extraCardIds: ["nope"] }).ok).toBe(false);
   });
+
+  it("allows team-mode multi play even if the first card is the off-color", () => {
+    const state = lobby(4);
+    state.teamMode = true;
+    state.teamCount = 2;
+    state.players[0]!.teamId = "a";
+    state.players[1]!.teamId = "a";
+    state.players[2]!.teamId = "b";
+    state.players[3]!.teamId = "b";
+    give(state, "p0", [
+      { id: "b7", type: "number", color: "blue", value: 7 },
+      { id: "r7", type: "number", color: "red", value: 7 },
+      { id: "keep", type: "number", color: "green", value: 1 },
+    ]);
+    const result = playCard(state, "p0", "b7", undefined, false, Math.random, { extraCardIds: ["r7"] });
+    expect(result.ok).toBe(true);
+    expect(getPlayer(state, "p0")!.hand.map((c) => c.id)).toEqual(["keep"]);
+    expect(state.currentColor).toBe("red");
+  });
 });
 
 describe("UNO catch window", () => {

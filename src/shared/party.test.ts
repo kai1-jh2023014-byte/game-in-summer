@@ -68,6 +68,12 @@ describe("party cards", () => {
     expect(party.length / deck.length).toBeLessThan(0.2);
   });
 
+  it("lots mix puts many more party cards in the deck", () => {
+    const deck = createPartyDeck([], { specialMix: "lots" });
+    const party = deck.filter(isPartyCard);
+    expect(party.length).toBeGreaterThanOrEqual(34);
+  });
+
   it("gift moves one card to the target", () => {
     const state = partyState(3);
     getPlayer(state, "p0")!.hand = [

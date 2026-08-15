@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import type { Color, GameEvent, GameMode, PlayExtras, TeamId } from "../shared/types.js";
+import type { CardVolume, Color, GameEvent, GameMode, PlayExtras, SpecialMix, TeamId } from "../shared/types.js";
 import type { RoomManager, RoomResult } from "../shared/rooms.js";
 
 export type Ack = { ok: true } | { ok: false; error: string };
@@ -178,6 +178,18 @@ export function attachSockets(io: Server, manager: RoomManager): void {
       const session = sessions.get(socket.id);
       if (!session) return ack?.({ ok: false, error: "ルームに参加してください" });
       reply(socket, manager.setMode(session.code, session.playerId, mode), ack);
+    });
+
+    socket.on("lobby:cardVolume", ({ volume }: { volume: CardVolume }, ack?: (a: Ack) => void) => {
+      const session = sessions.get(socket.id);
+      if (!session) return ack?.({ ok: false, error: "ルームに参加してください" });
+      reply(socket, manager.setCardVolume(session.code, session.playerId, volume), ack);
+    });
+
+    socket.on("lobby:specialMix", ({ mix }: { mix: SpecialMix }, ack?: (a: Ack) => void) => {
+      const session = sessions.get(socket.id);
+      if (!session) return ack?.({ ok: false, error: "ルームに参加してください" });
+      reply(socket, manager.setSpecialMix(session.code, session.playerId, mix), ack);
     });
 
     socket.on(

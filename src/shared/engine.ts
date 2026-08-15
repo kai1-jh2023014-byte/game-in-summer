@@ -9,8 +9,9 @@ import type {
   Ranking,
   SecretPayload,
 } from "./types.js";
-import { HAND_SIZE, MIN_PLAYERS, UNO_CATCH_MS, UNO_CATCH_PENALTY } from "./types.js";
+import { MIN_PLAYERS, UNO_CATCH_MS, UNO_CATCH_PENALTY } from "./types.js";
 import { canPlay, createDeckFor, isStackCard, isWild, shuffle, stackValue, type Rng } from "./deck.js";
+import { handSizeFor } from "./settings.js";
 import { allPlayersHaveTeams, assignBalancedTeams } from "./teams.js";
 import {
   isPartyCard,
@@ -330,13 +331,20 @@ export function dealAndStart(state: GameState, rng: Rng = Math.random): ActionRe
   state.chaosUsed = false;
   state.pendingDraw = 0;
 
-  const deck = shuffle(createDeckFor(state.mode, state.specialRules), rng);
+  const deck = shuffle(
+    createDeckFor(state.mode, state.specialRules, {
+      cardVolume: state.cardVolume ?? "normal",
+      specialMix: state.specialMix ?? "normal",
+    }),
+    rng,
+  );
   for (const p of state.players) {
     p.hand = [];
     p.calledUno = false;
     p.unoCatchUntil = null;
   }
-  for (let i = 0; i < HAND_SIZE; i++) {
+  const handSize = handSizeFor(state.cardVolume ?? "normal");
+  for (let i = 0; i < handSize; i++) {
     for (const p of state.players) {
       const card = deck.pop();
       if (card) p.hand.push(card);
@@ -415,7 +423,8 @@ export function playCard(
 
   const top = topCard(state);
   if (!top || !state.currentColor) return fail("場のカードがありません");
-  if (!canPlay(playing, top, state.currentColor, state.pendingDraw)) {
+  const bundlePlayable = [playing, ...extrasCards];
+  if (!bundlePlayable.some((c) => canPlay(c, top, state.currentColor!, state.pendingDraw))) {
     return fail(state.pendingDraw > 0 ? "いまは +2 か +4 だけ出せます" : "そのカードは出せません");
   }
   if (state.pendingDraw > 0 && !isStackCard(playing)) {

@@ -75,6 +75,22 @@ describe("RoomManager", () => {
     expect(mgr.get(code)?.players.find((p) => p.id === target.id)?.teamId).toBe(dest);
   });
 
+  it("lets the host set card volume and lots of specials", () => {
+    const mgr = new RoomManager();
+    const created = mgr.create("p1", "P1");
+    if (!created.ok) return;
+    const code = created.state.code;
+    mgr.join(code, "p2", "P2");
+    expect(mgr.setCardVolume(code, "p2", "high").ok).toBe(false);
+    expect(mgr.setCardVolume(code, "p1", "high").ok).toBe(true);
+    expect(mgr.get(code)?.cardVolume).toBe("high");
+    expect(mgr.setSpecialMix(code, "p1", "lots").ok).toBe(true);
+    expect(mgr.get(code)?.specialMix).toBe("lots");
+    expect(mgr.get(code)?.mode).toBe("party");
+    expect(mgr.startGame(code, "p1").ok).toBe(true);
+    expect(mgr.get(code)?.players.every((p) => p.hand.length === 9)).toBe(true);
+  });
+
   it("rejects illegal plays through the room API", () => {
     const mgr = new RoomManager();
     const created = mgr.create("p1", "P1");

@@ -1,6 +1,7 @@
-import type { Card, GameState, SpecialRuleId } from "./types.js";
+import type { Card, GameState, SpecialMix, SpecialRuleId } from "./types.js";
 import { PARTY_CARD_TYPES, UNO_CATCH_MS, isPartyType } from "./types.js";
 import { shuffle, type Rng } from "./deck.js";
+import { partyCardCounts } from "./settings.js";
 
 export type PartyCardType = (typeof PARTY_CARD_TYPES)[number];
 export { PARTY_CARD_TYPES, isPartyType };
@@ -56,18 +57,8 @@ export function pickSpecialRules(rng: Rng): SpecialRuleId[] {
   return picked;
 }
 
-export function partyCopies(rules: SpecialRuleId[]): Record<PartyCardType, number> {
-  const wild = rules.includes("wildParty") ? 1 : 0;
-  return {
-    gift: 3,
-    target: 3,
-    rotate: 3,
-    spy: 2,
-    bomb: 2,
-    king: 2,
-    exchange: 1 + wild,
-    chaos: 1 + wild,
-  };
+export function partyCopies(rules: SpecialRuleId[], mix: SpecialMix = "normal"): Record<PartyCardType, number> {
+  return partyCardCounts(rules, mix);
 }
 
 export function rotateHands(state: GameState): void {

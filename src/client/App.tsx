@@ -244,6 +244,8 @@ export function App() {
           onRandom={() => emit("lobby:randomTeams")}
           onMove={(playerId, teamId: TeamId) => emit("lobby:moveTeam", { playerId, teamId })}
           onMode={(mode) => emit("lobby:mode", { mode })}
+          onCardVolume={(volume) => emit("lobby:cardVolume", { volume })}
+          onSpecialMix={(mix) => emit("lobby:specialMix", { mix })}
           onDemo={() => setDemo(true)}
         />
       )}

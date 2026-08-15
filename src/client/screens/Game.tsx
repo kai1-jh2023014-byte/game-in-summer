@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Card, ClientState, Color, PlayExtras } from "../../shared/types";
-import { canPlay, isWild } from "../../shared/deck";
+import { canPlay, canPlayWithCombo, isWild } from "../../shared/deck";
 import { cardHelp } from "../../shared/cardHelp";
 import { CARD_INFO, needsTarget, RULE_INFO, type PartyCardType } from "../../shared/party";
 import { CardView, ColorPicker, HelpCard, PlayerPicker } from "../components/CardView";
@@ -75,16 +75,20 @@ export function Game({
   function tryPlay(card: Card, chosen?: Color) {
     if (!isMe || busy) return;
     if (state.drawnCard && card.id !== state.drawnCard.id) return;
-    if (!top || !color || !canPlay(card, top, color, pending)) return;
-    if (isWild(card) && !chosen) {
-      setPicking(card);
+    if (!top || !color) return;
+    const primary =
+      selectedCards.find((c) => canPlay(c, top, color, pending)) ??
+      (canPlay(card, top, color, pending) ? card : undefined);
+    if (!primary) return;
+    if (isWild(primary) && !chosen) {
+      setPicking(primary);
       return;
     }
-    if (needsTarget(card)) {
-      setTargeting(card);
+    if (needsTarget(primary)) {
+      setTargeting(primary);
       return;
     }
-    finishPlay(card, chosen);
+    finishPlay(primary, chosen);
   }
 
   function onTarget(targetId: string) {
@@ -120,6 +124,9 @@ export function Game({
   const displayHand = state.drawnCard ? [state.drawnCard, ...hand] : hand;
   const party = state.mode === "party";
   const lead = selectedCards[0];
+  const playLead =
+    top && color ? selectedCards.find((c) => canPlay(c, top, color, pending)) : undefined;
+  const canSubmit = Boolean(isMe && playLead && !busy && !(state.drawnCard && playLead.id !== state.drawnCard.id));
 
   return (
     <main className="screen game">
@@ -202,7 +209,9 @@ export function Game({
         <div className="hand-label">YOUR HAND · {state.you.hand.length + (state.drawnCard ? 1 : 0)}枚 — カードをタップして選ぶ</div>
         <div className="hand">
           {displayHand.map((card) => {
-            const playable = Boolean(isMe && top && color && canPlay(card, top, color, pending));
+            const playable = Boolean(
+              isMe && top && color && canPlayWithCombo(card, displayHand, top, color, pending),
+            );
             const locked = Boolean(state.drawnCard && card.id !== state.drawnCard.id);
             return (
               <CardView
@@ -229,12 +238,12 @@ export function Game({
             <button
               type="button"
               className="btn primary xl"
-              disabled={!isMe || busy || !top || !color || !canPlay(lead, top, color, pending) || Boolean(state.drawnCard && lead.id !== state.drawnCard.id)}
-              onClick={() => tryPlay(lead)}
+              disabled={!canSubmit}
+              onClick={() => playLead && tryPlay(playLead)}
             >
               {!isMe
                 ? "相手の番です"
-                : !top || !color || !canPlay(lead, top, color, pending)
+                : !canSubmit
                   ? "今は出せません"
                   : selectedCards.length > 1
                     ? `${selectedCards.length}枚出す`

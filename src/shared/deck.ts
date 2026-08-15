@@ -1,5 +1,6 @@
-import type { Card, Color, GameMode, SpecialRuleId } from "./types.js";
+import type { Card, Color, CardVolume, GameMode, SpecialMix, SpecialRuleId } from "./types.js";
 import { COLORS, isPartyType } from "./types.js";
+import { extraNumberSetsFor, partyCardCounts } from "./settings.js";
 
 export type Rng = () => number;
 
@@ -35,7 +36,24 @@ export function createDeck(): Card[] {
   return deck;
 }
 
-export function createPartyDeck(rules: SpecialRuleId[] = []): Card[] {
+function extraNumberSets(count: number): Card[] {
+  const extra: Card[] = [];
+  for (let s = 0; s < count; s++) {
+    for (const color of COLORS) {
+      extra.push({ id: nextId(), type: "number", color, value: 0 });
+      for (let n = 1; n <= 9; n++) {
+        extra.push({ id: nextId(), type: "number", color, value: n });
+        extra.push({ id: nextId(), type: "number", color, value: n });
+      }
+    }
+  }
+  return extra;
+}
+
+export function createPartyDeck(
+  rules: SpecialRuleId[] = [],
+  opts: { extraNumberSets?: number; specialMix?: SpecialMix } = {},
+): Card[] {
   const deck = createDeck();
   // 7人でも数字の組み合わせと複数出しが起きやすいよう、4〜7を1枚ずつ足す
   for (const color of COLORS) {
@@ -43,17 +61,8 @@ export function createPartyDeck(rules: SpecialRuleId[] = []): Card[] {
       deck.push({ id: nextId(), type: "number", color, value: n });
     }
   }
-  const extra = rules.includes("wildParty") ? 1 : 0;
-  const copies: Record<string, number> = {
-    gift: 3,
-    target: 3,
-    rotate: 3,
-    spy: 2,
-    bomb: 2,
-    king: 2,
-    exchange: 1 + extra,
-    chaos: 1 + extra,
-  };
+  deck.push(...extraNumberSets(opts.extraNumberSets ?? 0));
+  const copies = partyCardCounts(rules, opts.specialMix ?? "normal");
   for (const [type, count] of Object.entries(copies)) {
     for (let i = 0; i < count; i++) {
       deck.push({ id: nextId(), type: type as Card["type"], color: "black" });
@@ -62,8 +71,19 @@ export function createPartyDeck(rules: SpecialRuleId[] = []): Card[] {
   return deck;
 }
 
-export function createDeckFor(mode: GameMode, rules: SpecialRuleId[] = []): Card[] {
-  return mode === "party" ? createPartyDeck(rules) : createDeck();
+export function createDeckFor(
+  mode: GameMode,
+  rules: SpecialRuleId[] = [],
+  opts: { cardVolume?: CardVolume; specialMix?: SpecialMix } = {},
+): Card[] {
+  const extra = extraNumberSetsFor(opts.cardVolume ?? "normal");
+  const mix = opts.specialMix ?? "normal";
+  if (mode === "party") {
+    return createPartyDeck(rules, { extraNumberSets: extra, specialMix: mix });
+  }
+  const deck = createDeck();
+  if (extra) deck.push(...extraNumberSets(extra));
+  return deck;
 }
 
 export function shuffle<T>(items: T[], rng: Rng = Math.random): T[] {
@@ -102,6 +122,25 @@ export function canPlay(card: Card, top: Card, currentColor: Color, pendingDraw 
     return true;
   }
   return false;
+}
+
+/** Same-number cards that can be bundled with a playable one. */
+export function canPlayWithCombo(
+  card: Card,
+  hand: Card[],
+  top: Card,
+  currentColor: Color,
+  pendingDraw = 0,
+): boolean {
+  if (canPlay(card, top, currentColor, pendingDraw)) return true;
+  if (pendingDraw > 0 || card.type !== "number") return false;
+  return hand.some(
+    (other) =>
+      other.id !== card.id &&
+      other.type === "number" &&
+      other.value === card.value &&
+      canPlay(other, top, currentColor, pendingDraw),
+  );
 }
 
 export function hasPlayable(hand: Card[], top: Card, currentColor: Color, pendingDraw = 0): boolean {

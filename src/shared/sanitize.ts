@@ -53,6 +53,8 @@ export function sanitizeFor(state: GameState, playerId: string): ClientState {
     playerCount: state.players.length,
     maxPlayers: MAX_PLAYERS,
     mode: state.mode ?? "classic",
+    cardVolume: state.cardVolume ?? "normal",
+    specialMix: state.specialMix ?? "normal",
     specialRules: state.specialRules ?? [],
     luckyNumber: state.luckyNumber ?? null,
     pendingDraw: state.pendingDraw ?? 0,

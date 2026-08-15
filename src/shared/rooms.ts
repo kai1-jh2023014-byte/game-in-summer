@@ -1,4 +1,4 @@
-import type { Color, GameEvent, GameMode, GameState, Player, PlayExtras, SecretPayload, TeamId } from "./types.js";
+import type { CardVolume, Color, GameEvent, GameMode, GameState, Player, PlayExtras, SecretPayload, SpecialMix, TeamId } from "./types.js";
 import { MAX_PLAYERS, MIN_PLAYERS } from "./types.js";
 import {
   callUno,
@@ -49,6 +49,8 @@ export function createEmptyState(code: string, host: Player): GameState {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     mode: "classic",
+    cardVolume: "normal",
+    specialMix: "normal",
     specialRules: [],
     luckyNumber: null,
     bonusAction: false,
@@ -256,6 +258,31 @@ export class RoomManager {
     const hostErr = this.requireHost(state, playerId);
     if (hostErr) return { ok: false, error: hostErr };
     state.mode = mode === "party" ? "party" : "classic";
+    if (state.mode === "classic") state.specialMix = "normal";
+    state.updatedAt = Date.now();
+    return { ok: true, state, events: [] };
+  }
+
+  setCardVolume(code: string, playerId: string, volume: CardVolume): RoomResult {
+    const state = this.get(code);
+    if (!state) return { ok: false, error: "ルームが見つかりません" };
+    if (state.status !== "lobby") return { ok: false, error: "ロビーでのみ変更できます" };
+    const hostErr = this.requireHost(state, playerId);
+    if (hostErr) return { ok: false, error: hostErr };
+    const allowed: CardVolume[] = ["low", "normal", "high", "max"];
+    state.cardVolume = allowed.includes(volume) ? volume : "normal";
+    state.updatedAt = Date.now();
+    return { ok: true, state, events: [] };
+  }
+
+  setSpecialMix(code: string, playerId: string, mix: SpecialMix): RoomResult {
+    const state = this.get(code);
+    if (!state) return { ok: false, error: "ルームが見つかりません" };
+    if (state.status !== "lobby") return { ok: false, error: "ロビーでのみ変更できます" };
+    const hostErr = this.requireHost(state, playerId);
+    if (hostErr) return { ok: false, error: hostErr };
+    state.specialMix = mix === "lots" ? "lots" : "normal";
+    if (state.specialMix === "lots") state.mode = "party";
     state.updatedAt = Date.now();
     return { ok: true, state, events: [] };
   }
